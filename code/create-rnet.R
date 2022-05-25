@@ -1,3 +1,5 @@
+# This script creates the example dataset which is available in release 0.1
+
 library(tidyverse)
 library(sf)
 sf_use_s2(FALSE)
@@ -28,7 +30,7 @@ rnet_id = rnet_id %>%
     col = cut(Quietness, quietness_breaks, labels = pal),
     lwd = case_when(`Bicycle (Baseline)` < 20 ~ 20, TRUE ~ `Bicycle (Baseline)`)
   ) %>%
-  filter(`Bicycle (Baseline)` > 10)
+  filter(`Bicycle (Baseline)` > 10) # Remove any rnet segments with small numbers of cyclists
 
 # Join the rnet with the street names -------------------------------------
 

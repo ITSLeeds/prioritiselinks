@@ -1,3 +1,5 @@
+# This script uses the example dataset created in code/create-rnet.R
+
 library(tidyverse)
 
 # piggyback::pb_download("rnet_kildare_quietest.Rds", tag = "0.1")
