@@ -22,15 +22,15 @@ pal = colorspace::sequential_hcl(n = 4, h = c(141, 6), c = c(70, NA, 86), l = c(
 rnet_id = rnet_id %>%
   transmute(
     segment_id = segment_id_first,
-    `Bicycle (Baseline)` = round(cyclists_sum),
-    `Bicycle (Decarbonise)` = round(cyclists_10pc_sum),
-    `Bicycle (Demand reduction)` = round(cyclists_30pc_sum),
-    Gradient = round(gradient_smooth_mean * 100),
-    Quietness = round(quietness_mean),
-    col = cut(Quietness, quietness_breaks, labels = pal),
-    lwd = case_when(`Bicycle (Baseline)` < 20 ~ 20, TRUE ~ `Bicycle (Baseline)`)
+    cyclists = round(cyclists_sum),
+    cyclists_10pc = round(cyclists_10pc_sum),
+    cyclists_30pc = round(cyclists_30pc_sum),
+    gradient = round(gradient_smooth_mean * 100),
+    quietness = round(quietness_mean),
+    col = cut(quietness, quietness_breaks, labels = pal),
+    lwd = case_when(cyclists < 20 ~ 20, TRUE ~ cyclists)
   ) %>%
-  filter(`Bicycle (Baseline)` > 10) # Remove any rnet segments with small numbers of cyclists
+  filter(cyclists > 10) # Remove any rnet segments with small numbers of cyclists
 
 # Join the rnet with the street names -------------------------------------
 
@@ -51,11 +51,11 @@ saveRDS(rnet_join, "rnet_kildare_quietest.Rds")
 # join_kildare = st_join(routes_kildare, rnet_buff, join = st_within)
 # # 552387
 # join_kildare_filtered = join_kildare %>%
-#   filter(! is.na(Quietness))
+#   filter(! is.na(quietness))
 # # 355281
 #
 # kildare_simplified = join_kildare_filtered %>%
-#   select(name, `Bicycle (Baseline)`, `Bicycle (Decarbonise)`, Quietness, col, lwd)
+#   select(name, cyclists, cyclists_10pc, quietness, col, lwd)
 # system.time({
 #   kildare_unique = distinct(kildare_simplified)
 # })

@@ -5,19 +5,53 @@ library(tidyverse)
 # piggyback::pb_download("rnet_kildare_quietest.Rds", tag = "0.1")
 rnet_quiet = readRDS("rnet_kildare_quietest.Rds")
 
-r_linestrings_with_ref = rnet_kildare %>%
-  filter(ref != "")
+# # Roads with no ref -------------------------------------------------------
+#
+# # Remove segments with cycling potential below 30 (to prevent side street segments)
+# min_cycling_potential_without_ref = 30
+# r_linestrings_without_ref =  rnet_quiet %>%
+#   filter(name == "") %>%
+#   filter(cyclists >= min_cycling_potential_without_ref)
+#
+# # Put into groups, using a 20m buffer (stricter than for roads with a ref, to prevent groups covering multiple streets)
+# r_linestrings_without_ref_buff = geo_buffer(shp = r_linestrings_without_ref, dist = 20)
+# touching_list = st_intersects(r_linestrings_without_ref_buff)
+# g = igraph::graph.adjlist(touching_list)
+# components = igraph::components(g)
+# r_linestrings_without_ref$group2 = components$membership
+#
+# # mapview::mapview(r_linestrings_without_ref["group2"], lwd = 3)
+#
+# # Remove groups with length <300m (20m buffer). (these are groups consisting purely of road segments with no ref) this is stricter than for roads with refs, because otherwise too many short segments are picked up. # Remove groups without sufficient width/lanes or cycle potential (the same as for roads with a ref)
+# r_linestrings_without_ref2 = r_linestrings_without_ref %>%
+#   group_by(group2) %>%
+#   mutate(
+#     group2_length = round(sum(length)),
+#     mean_cycling_potential = round(weighted.mean(cycling_potential, length, na.rm = TRUE)),
+#     mean_width = round(weighted.mean(width, length, na.rm = TRUE)),
+#     majority_spare_lane = sum(length[spare_lane]) > sum(length[!spare_lane])
+#   ) %>%
+#   filter(group2_length >= 300) %>%
+#   filter(mean_cycling_potential > min_grouped_cycling_potential) %>%  # this varies by region
+#   filter(mean_width >= 10 | majority_spare_lane) %>%
+#   ungroup()
+# # mapview::mapview(r_linestrings_without_ref2, zcol = "mean_cycling_potential")
+#
+#
+# r_linestrings_with_ref = rnet_quiet %>%
+#   filter(ref != "")
 
 
 # Roads with a ref --------------------------------------------------------
 
-gs = unique(r_linestrings_with_ref$ref)
+buff_dist_large = 100
+gs = unique(rnet_quiet$name)
 # i = g[2]
-i = "A4174"
+i = "L4009"
 
 # create per ref groups
 rg_list = lapply(gs, FUN = function(i) {
-  rg = r_linestrings_with_ref %>% filter(ref == i)
+  rg = rnet_quiet %>% filter(name == i)
   # mapview::mapview(rg)
   r_lanes_all_buff = rg %>%
     st_transform(27700) %>%
@@ -33,8 +67,8 @@ rg_list = lapply(gs, FUN = function(i) {
 rg_new = do.call(rbind, rg_list)
 # mapview::mapview(rg_new)
 
-#Create group IDs for the roads with a ref
-rg_new$group2 = paste(rg_new$ig, rg_new$group, rg_new$ref)
+#Create group IDs for the roads with a name
+rg_new$group2 = paste(rg_new$ig, rg_new$group, rg_new$name)
 rg_new$ig = NULL
 
 # Only keep groups of sufficient width/lanes and cycling potential
@@ -51,17 +85,17 @@ rg_new2 = rg_new %>%
   ungroup()
 # mapview::mapview(rg_new2)
 
-# Now rejoin the roads with no ref together with the roads with a ref
-r_lanes = rbind(rg_new2, r_linestrings_without_ref2)
+# Now rejoin the roads with no name together with the roads with a name
+r_lanes = rbind(rg_new2, r_linestrings_without_name2)
 # mapview::mapview(r_lanes, zcol = "group2")
 
-gs = unique(r_lanes$ref)
+gs = unique(r_lanes$name)
 # i = g[2]
 i = "A4174"
 
-# create per ref groups
+# create per name groups
 rg_list = lapply(gs, FUN = function(i) {
-  rg = r_lanes %>% filter(ref == i)
+  rg = r_lanes %>% filter(name == i)
   # mapview::mapview(rg)
   r_lanes_all_buff = rg %>%
     st_transform(27700) %>%
@@ -79,7 +113,7 @@ rg_new = do.call(rbind, rg_list)
 
 # Only keep groups of sufficient width and cycling potential
 rg_new2 = rg_new %>%
-  group_by(ig, group, ref) %>%
+  group_by(ig, group, name) %>%
   mutate(
     mean_width = round(weighted.mean(width, length, na.rm = TRUE)),
     mean_cycling_potential = round(weighted.mean(cycling_potential, length, na.rm = TRUE)),
@@ -96,7 +130,7 @@ g = igraph::graph.adjlist(touching_list)
 components = igraph::components(g)
 rg_new2$lastgroup = components$membership
 
-# Only keep segments which are part of a wider group (including roads with different refs/names) of >500m length (100m buffer)
+# Only keep segments which are part of a wider group (including roads with different names/names) of >500m length (100m buffer)
 rg_new3 = rg_new2 %>%
   group_by(lastgroup) %>%
   mutate(last_length = round(sum(length))) %>%
@@ -107,7 +141,7 @@ rg_new3 = rg_new2 %>%
 # create a new group to capture long continuous sections with the same name
 min_length_named_road = min_grouped_length
 rg_new4 = rg_new3 %>%
-  group_by(ref, group, ig, name) %>%
+  group_by(name, group, ig, name) %>%
   mutate(long_named_section = case_when(
     sum(length) > min_length_named_road & name != "" ~ name,
     TRUE ~ "Other"
@@ -146,14 +180,14 @@ lg_new = do.call(rbind, long_list)
 
 # find group membership of top named roads
 r_lanes_grouped2 = lg_new %>%
-  group_by(ref, group, ig, long_named_section, long_named_group) %>%
+  group_by(name, group, ig, long_named_section, long_named_group) %>%
   summarise(
     name = case_when(
       length(table(name)) > 4 ~ "Unnamed road",
       names(table(name))[which.max(table(name))] != "" ~
         names(table(name))[which.max(table(name))],
-      names(table(ref))[which.max(table(ref))] != "" ~
-        names(table(ref))[which.max(table(ref))],
+      names(table(name))[which.max(table(name))] != "" ~
+        names(table(name))[which.max(table(name))],
       TRUE ~ "Unnamed road"
     ),
     group_length = round(sum(length)),
@@ -191,7 +225,7 @@ summary(r_lanes_joined$proportion_on_cycleway) # all between 0 and 1
 
 # we need to add in all segments within the grey key roads, and usethe combined dataset to pick the top routes
 r_lanes_top = r_lanes_joined %>%
-  # filter(name != "Unnamed road" & ref != "") %>%
+  # filter(name != "Unnamed road" & name != "") %>%
   filter(name != "Unnamed road") %>%
   # filter(!str_detect(string = name, pattern = "^A[1-9]")) %>%
   filter(group_length > min_grouped_length) %>%
@@ -224,7 +258,7 @@ r_lanes_final = r_lanes_joined %>%
       mean_width >= 15 ~ ">15 m"
     )
   ) %>%
-  select(name, ref, Status, mean_cycling_potential, spare_lane = majority_spare_lane, `Estimated width`, `length (m)` = group_length, group_id, speed_limit)
+  select(name, name, Status, mean_cycling_potential, spare_lane = majority_spare_lane, `Estimated width`, `length (m)` = group_length, group_id, speed_limit)
 r_lanes_final$Status = factor(r_lanes_final$Status, levels = c(labels[1], labels[2], labels[3]))
 
 table(r_lanes_final$name)
