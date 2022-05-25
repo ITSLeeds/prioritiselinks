@@ -27,7 +27,7 @@ rnet_quiet = readRDS("rnet_kildare_quietest.Rds")
 #   group_by(group2) %>%
 #   mutate(
 #     group2_length = round(sum(length)),
-#     mean_cycling_potential = round(weighted.mean(cycling_potential, length, na.rm = TRUE)),
+#     mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE)),
 #     mean_width = round(weighted.mean(width, length, na.rm = TRUE)),
 #     majority_spare_lane = sum(length[spare_lane]) > sum(length[!spare_lane])
 #   ) %>%
@@ -41,8 +41,10 @@ rnet_quiet = readRDS("rnet_kildare_quietest.Rds")
 # r_linestrings_with_ref = rnet_quiet %>%
 #   filter(ref != "")
 
-
 # Roads with a ref --------------------------------------------------------
+
+# We should separate the road refs from the names, and use them for grouping, as in the rapid tool
+# We should also group by cycle friendliness
 
 buff_dist_large = 100
 gs = unique(rnet_quiet$name)
@@ -71,16 +73,14 @@ rg_new = do.call(rbind, rg_list)
 rg_new$group2 = paste(rg_new$ig, rg_new$group, rg_new$name)
 rg_new$ig = NULL
 
-# Only keep groups of sufficient width/lanes and cycling potential
+# Only keep groups of sufficient cycling potential
+min_grouped_cycling_potential = 30
 rg_new2 = rg_new %>%
   group_by(group2) %>%
   mutate(
     group2_length = round(sum(length)),
-    mean_cycling_potential = round(weighted.mean(cycling_potential, length, na.rm = TRUE)),
-    mean_width = round(weighted.mean(width, length, na.rm = TRUE)),
-    majority_spare_lane = sum(length[spare_lane]) > sum(length[!spare_lane])
+    mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE))
   ) %>%
-  filter(mean_width >= 10 | majority_spare_lane) %>%
   filter(mean_cycling_potential >= min_grouped_cycling_potential) %>%
   ungroup()
 # mapview::mapview(rg_new2)
@@ -116,7 +116,7 @@ rg_new2 = rg_new %>%
   group_by(ig, group, name) %>%
   mutate(
     mean_width = round(weighted.mean(width, length, na.rm = TRUE)),
-    mean_cycling_potential = round(weighted.mean(cycling_potential, length, na.rm = TRUE)),
+    mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE)),
     majority_spare_lane = sum(length[spare_lane]) > sum(length[!spare_lane])
   ) %>%
   filter(mean_width >= 10 | majority_spare_lane) %>%
@@ -191,7 +191,7 @@ r_lanes_grouped2 = lg_new %>%
       TRUE ~ "Unnamed road"
     ),
     group_length = round(sum(length)),
-    mean_cycling_potential = round(weighted.mean(cycling_potential, length, na.rm = TRUE)),
+    mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE)),
     mean_width = round(weighted.mean(width, length, na.rm = TRUE)),
     majority_spare_lane = sum(length[spare_lane]) > sum(length[!spare_lane]),
     speed_limit = names(which.max(table(maxspeed)))
