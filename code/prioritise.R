@@ -3,12 +3,15 @@
 library(tidyverse)
 library(sf)
 sf_use_s2(FALSE)
+library(stplanr)
 
 # piggyback::pb_download("rnet_kildare_quietest.Rds", tag = "0.1")
 rnet_quiet = readRDS("rnet_kildare_quietest.Rds")
 
+min_grouped_cycling_potential = 30
 
 # Identify road refs ------------------------------------------------------
+# We separate the road refs from the names, and use them for grouping, as in the rapid tool
 
 rnet_with_ref = rnet_quiet[which(grepl("L1|L2|L3|L4|L5|L6|L7|L8|L9|R1|R2|R3|R4|R5|R6|R7|R8|R9", rnet_quiet$name) & !(grepl("Link joining|Link between|Link with|Along the side of", rnet_quiet$name))),]
 
@@ -18,46 +21,41 @@ rnet_without_ref = rnet_quiet[which(!(rnet_quiet$name %in% rnet_with_ref$name)),
 
 rnet_with_ref = rnet_with_ref %>%
   mutate(ref = str_extract(rnet_with_ref$name, "\\D\\d+"))
+rnet_without_ref = rnet_without_ref %>%
+  mutate(ref = "")
 
-# # Roads with no ref -------------------------------------------------------
-#
+# Roads with no ref -------------------------------------------------------
+
 # # Remove segments with cycling potential below 30 (to prevent side street segments)
 # min_cycling_potential_without_ref = 30
-# r_linestrings_without_ref =  rnet_quiet %>%
-#   filter(name == "") %>%
+# r_linestrings_without_ref =  rnet_without_ref %>%
 #   filter(cyclists >= min_cycling_potential_without_ref)
-#
-# # Put into groups, using a 20m buffer (stricter than for roads with a ref, to prevent groups covering multiple streets)
-# r_linestrings_without_ref_buff = geo_buffer(shp = r_linestrings_without_ref, dist = 20)
-# touching_list = st_intersects(r_linestrings_without_ref_buff)
-# g = igraph::graph.adjlist(touching_list)
-# components = igraph::components(g)
-# r_linestrings_without_ref$group2 = components$membership
-#
-# # mapview::mapview(r_linestrings_without_ref["group2"], lwd = 3)
-#
-# # Remove groups with length <300m (20m buffer). (these are groups consisting purely of road segments with no ref) this is stricter than for roads with refs, because otherwise too many short segments are picked up. # Remove groups without sufficient width/lanes or cycle potential (the same as for roads with a ref)
-# r_linestrings_without_ref2 = r_linestrings_without_ref %>%
-#   group_by(group2) %>%
-#   mutate(
-#     group2_length = round(sum(length)),
-#     mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE)),
-#     mean_width = round(weighted.mean(width, length, na.rm = TRUE)),
-#     majority_spare_lane = sum(length[spare_lane]) > sum(length[!spare_lane])
-#   ) %>%
-#   filter(group2_length >= 300) %>%
-#   filter(mean_cycling_potential > min_grouped_cycling_potential) %>%  # this varies by region
-#   filter(mean_width >= 10 | majority_spare_lane) %>%
-#   ungroup()
-# # mapview::mapview(r_linestrings_without_ref2, zcol = "mean_cycling_potential")
-#
-#
-# r_linestrings_with_ref = rnet_quiet %>%
-#   filter(ref != "")
+
+# Put into groups, using a 500m buffer (stricter than for roads with a ref, to prevent groups covering multiple streets)
+r_linestrings_without_ref_buff = geo_buffer(shp = rnet_without_ref, dist = 500)
+touching_list = st_intersects(r_linestrings_without_ref_buff)
+g = igraph::graph.adjlist(touching_list)
+components = igraph::components(g)
+rnet_without_ref$group2 = components$membership
+
+# mapview::mapview(r_linestrings_without_ref["group2"], lwd = 3)
+
+# Remove groups with length <300m (20m buffer). (these are groups consisting purely of road segments with no ref) this is stricter than for roads with refs, because otherwise too many short segments are picked up.
+# We could also remove groups without sufficient cycle potential (the same as for roads with a ref)
+r_linestrings_without_ref = rnet_without_ref %>%
+  group_by(group2) %>%
+  mutate(
+    group2_length = round(sum(length)),
+    mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE))
+  ) %>%
+  filter(group2_length >= 300) %>%
+  # filter(mean_cycling_potential > min_grouped_cycling_potential) %>%  # this varies by region
+  ungroup()
+# mapview::mapview(r_linestrings_without_ref, zcol = "mean_cycling_potential")
+
 
 # Roads with a ref --------------------------------------------------------
 
-# We should separate the road refs from the names, and use them for grouping, as in the rapid tool
 # We should also group by cycle friendliness
 
 buff_dist_large = 100
@@ -87,15 +85,15 @@ rg_new = do.call(rbind, rg_list)
 rg_new$group2 = paste(rg_new$ig, rg_new$group, rg_new$ref)
 rg_new$ig = NULL
 
-# Only keep groups of sufficient cycling potential
-min_grouped_cycling_potential = 30
+# Only keep groups of sufficient length (and cycling potential)
 rg_new2 = rg_new %>%
   group_by(group2) %>%
   mutate(
     group2_length = round(sum(length)),
     mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE))
   ) %>%
-  filter(mean_cycling_potential >= min_grouped_cycling_potential) %>%
+  # filter(mean_cycling_potential >= min_grouped_cycling_potential) %>%
+  filter(group2_length >= 300)
   ungroup()
 # mapview::mapview(rg_new2)
 
@@ -114,7 +112,7 @@ summary(rg_new2$group2_length)
 
 
 # Now rejoin the roads with no ref together with the roads with a ref
-r_lanes = rbind(rg_new2, r_linestrings_without_ref2)
+r_lanes = rbind(rg_new2, r_linestrings_without_ref)
 # mapview::mapview(r_lanes, zcol = "group2")
 
 gs = unique(r_lanes$name)
