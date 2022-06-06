@@ -137,16 +137,13 @@ rg_list = lapply(gs, FUN = function(i) {
 rg_new = do.call(rbind, rg_list)
 # mapview::mapview(rg_new)
 
-# Only keep groups of sufficient width and cycling potential
+# Only keep groups of sufficient cycling potential
 rg_new2 = rg_new %>%
   group_by(ig, group, name) %>%
   mutate(
-    mean_width = round(weighted.mean(width, length, na.rm = TRUE)),
-    mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE)),
-    majority_spare_lane = sum(length[spare_lane]) > sum(length[!spare_lane])
+    mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE))
   ) %>%
-  filter(mean_width >= 10 | majority_spare_lane) %>%
-  filter(mean_cycling_potential >= min_grouped_cycling_potential) %>%
+  # filter(mean_cycling_potential >= min_grouped_cycling_potential) %>%
   ungroup()
 # mapview::mapview(rg_new2, zcol = "mean_cycling_potential")
 
