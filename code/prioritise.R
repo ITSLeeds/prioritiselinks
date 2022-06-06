@@ -1,9 +1,19 @@
 # This script uses the example dataset created in code/create-rnet.R
 
 library(tidyverse)
+library(sf)
+sf_use_s2(FALSE)
 
 # piggyback::pb_download("rnet_kildare_quietest.Rds", tag = "0.1")
 rnet_quiet = readRDS("rnet_kildare_quietest.Rds")
+
+
+# Identify road refs ------------------------------------------------------
+
+rnet_with_ref = rnet_quiet[which(grepl("L1|L2|L3|L4|L5|L6|L7|L8|L9|R1|R2|R3|R4|R5|R6|R7|R8|R9", rnet_quiet$name) & !(grepl("Link joining|Link between|Link with|Along the side of", rnet_quiet$name))),]
+rnet_without_ref = rnet_quiet[which(!(rnet_quiet$name %in% rnet_with_ref$name)),]
+
+# deal with "Un-named link", "Short un-named link"
 
 # # Roads with no ref -------------------------------------------------------
 #
@@ -84,6 +94,20 @@ rg_new2 = rg_new %>%
   filter(mean_cycling_potential >= min_grouped_cycling_potential) %>%
   ungroup()
 # mapview::mapview(rg_new2)
+
+summary(rg_new2$group2_length)
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max.
+# 1     225     681    1537    1291   23340
+# ranges from 1m to 23km
+
+
+
+
+
+
+
+
+
 
 # Now rejoin the roads with no name together with the roads with a name
 r_lanes = rbind(rg_new2, r_linestrings_without_name2)
