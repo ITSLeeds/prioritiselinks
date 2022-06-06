@@ -11,9 +11,13 @@ rnet_quiet = readRDS("rnet_kildare_quietest.Rds")
 # Identify road refs ------------------------------------------------------
 
 rnet_with_ref = rnet_quiet[which(grepl("L1|L2|L3|L4|L5|L6|L7|L8|L9|R1|R2|R3|R4|R5|R6|R7|R8|R9", rnet_quiet$name) & !(grepl("Link joining|Link between|Link with|Along the side of", rnet_quiet$name))),]
+
 rnet_without_ref = rnet_quiet[which(!(rnet_quiet$name %in% rnet_with_ref$name)),]
 
 # deal with "Un-named link", "Short un-named link"
+
+rnet_with_ref = rnet_with_ref %>%
+  mutate(ref = str_extract(rnet_with_ref$name, "\\D\\d+"))
 
 # # Roads with no ref -------------------------------------------------------
 #
@@ -57,13 +61,13 @@ rnet_without_ref = rnet_quiet[which(!(rnet_quiet$name %in% rnet_with_ref$name)),
 # We should also group by cycle friendliness
 
 buff_dist_large = 100
-gs = unique(rnet_quiet$name)
+gs = unique(rnet_with_ref$ref)
 # i = g[2]
 i = "L4009"
 
 # create per ref groups
 rg_list = lapply(gs, FUN = function(i) {
-  rg = rnet_quiet %>% filter(name == i)
+  rg = rnet_with_ref %>% filter(ref == i)
   # mapview::mapview(rg)
   r_lanes_all_buff = rg %>%
     st_transform(27700) %>%
@@ -79,8 +83,8 @@ rg_list = lapply(gs, FUN = function(i) {
 rg_new = do.call(rbind, rg_list)
 # mapview::mapview(rg_new)
 
-#Create group IDs for the roads with a name
-rg_new$group2 = paste(rg_new$ig, rg_new$group, rg_new$name)
+#Create group IDs for the roads with a ref
+rg_new$group2 = paste(rg_new$ig, rg_new$group, rg_new$ref)
 rg_new$ig = NULL
 
 # Only keep groups of sufficient cycling potential
@@ -109,8 +113,8 @@ summary(rg_new2$group2_length)
 
 
 
-# Now rejoin the roads with no name together with the roads with a name
-r_lanes = rbind(rg_new2, r_linestrings_without_name2)
+# Now rejoin the roads with no ref together with the roads with a ref
+r_lanes = rbind(rg_new2, r_linestrings_without_ref2)
 # mapview::mapview(r_lanes, zcol = "group2")
 
 gs = unique(r_lanes$name)
