@@ -93,7 +93,7 @@ rg_new2 = rg_new %>%
     mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE))
   ) %>%
   # filter(mean_cycling_potential >= min_grouped_cycling_potential) %>%
-  filter(group2_length >= 300)
+  filter(group2_length >= 300) %>%
   ungroup()
 # mapview::mapview(rg_new2)
 
@@ -139,7 +139,7 @@ rg_new = do.call(rbind, rg_list)
 
 # Only keep groups of sufficient cycling potential
 rg_new2 = rg_new %>%
-  group_by(ig, group, name) %>%
+  group_by(ig, group2, name) %>%
   mutate(
     mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE))
   ) %>%
@@ -154,6 +154,7 @@ components = igraph::components(g)
 rg_new2$lastgroup = components$membership
 
 # Only keep segments which are part of a wider group (including roads with different names/names) of >500m length (100m buffer)
+min_grouped_length = 500
 rg_new3 = rg_new2 %>%
   group_by(lastgroup) %>%
   mutate(last_length = round(sum(length))) %>%
