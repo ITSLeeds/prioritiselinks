@@ -238,15 +238,62 @@ weighted.mean(r_lanes_grouped2$quietness, w = r_lanes_grouped2$group_length)
 weighted.mean(r_lanes_grouped2$mean_cycling_potential, w = r_lanes_grouped2$group_length)
 # [1] 39.82803
 
-r_lanes_grouped2 = r_lanes_grouped2 %>%
+prioritise = r_lanes_grouped2 %>%
   mutate(quiet = case_when(r_lanes_grouped2$quietness > 50 ~ "yes", TRUE ~ "no"),
-         high_cycling = case_when(r_lanes_grouped2$mean_cycling_potential > 40 ~ "yes", TRUE ~ "no"))
+         high_cycling = case_when(r_lanes_grouped2$mean_cycling_potential > 40 ~ "yes", TRUE ~ "no")
+         # , priority = case_when(
+         #   r_lanes_grouped2$quietness == "no" && r_lanes_grouped2$high_cycling == "yes" ~ 1,
+         #   r_lanes_grouped2$quietness == "yes" && r_lanes_grouped2$high_cycling == "yes" ~ 2,
+         #   r_lanes_grouped2$quietness == "yes" && r_lanes_grouped2$high_cycling == "no" ~ 3,
+         #   r_lanes_grouped2$quietness == "no" && r_lanes_grouped2$high_cycling == "no" ~ 4)
+  )
+
+prioritise = prioritise %>%
+  mutate(priority = case_when(prioritise$quiet == "no" & prioritise$high_cycling == "yes" ~ 1,
+                              prioritise$quiet == "yes" & prioritise$high_cycling == "yes" ~ 2,
+                              prioritise$quiet == "yes" & prioritise$high_cycling == "no" ~ 3,
+                              prioritise$quiet == "no" & prioritise$high_cycling == "no" ~ 4
+  )
+  )
 
 
+# tm_shape(prioritise) + tm_lines("quiet")
 
+high_quiet = prioritise %>%
+  filter(quiet == "yes", high_cycling == "yes")
+sum(high_quiet$group_length)
+# [1] 136038
+dim(high_quiet)[1]
+# [1] 215
 
+high_busy = prioritise %>%
+  filter(quiet == "no", high_cycling == "yes")
+sum(high_busy$group_length)
+# [1] 101434
+dim(high_busy)[1]
+# [1] 356
 
+low_quiet = prioritise %>%
+  filter(quiet == "yes", high_cycling == "no")
+sum(low_quiet$group_length)
+# [1] 251034
+dim(low_quiet)[1]
+# [1] 204
 
+low_busy = prioritise %>%
+  filter(quiet == "no", high_cycling == "no")
+sum(low_busy$group_length)
+# [1] 211562
+dim(low_busy)[1]
+# [1] 272
+
+g1 = prioritise %>%
+  ggplot(aes(mean_cycling_potential, quietness)) +
+  geom_point(alpha = 0.3, colour = prioritise$priority) +
+  geom_hline(yintercept = 50) +
+  geom_vline(xintercept = 40) +
+  labs(x = "Mean cycling potential", y = "Quietness")
+# g1 + scale_x_continuous(trans = "log10")
 
 # Generate lists of top segments ------------------------------------------------------------
 
@@ -254,7 +301,7 @@ cycleways = cycleways_en[region, ]
 cycleways = cycleways %>% select(surface, name, lit, osm_id)
 cycleway_buffer = stplanr::geo_buffer(cycleways, dist = pct_dist_within) %>% sf::st_union()
 
-r_lanes_grouped_in_cycleway = st_intersection(r_lanes_grouped2, cycleway_buffer) %>%
+r_lanes_grouped_in_cycleway = st_intersection(prioritise, cycleway_buffer) %>%
   mutate(length_in_cycleway = round(as.numeric(st_length(.))))
 # mapview::mapview(r_lanes_grouped_in_cycleway["length_in_cycleway"]) +
 #   mapview::mapview(cycleways)
@@ -262,7 +309,7 @@ r_lanes_grouped_in_cycleway = r_lanes_grouped_in_cycleway %>%
   st_drop_geometry()
 
 minp_exclude = 0.8
-r_lanes_joined = left_join(r_lanes_grouped2, r_lanes_grouped_in_cycleway) %>%
+r_lanes_joined = left_join(prioritise, r_lanes_grouped_in_cycleway) %>%
   mutate(km_cycled = round(mean_cycling_potential * group_length / 1000))
 r_lanes_joined$length_in_cycleway[is.na(r_lanes_joined$length_in_cycleway)] = 0
 r_lanes_joined$proportion_on_cycleway = r_lanes_joined$length_in_cycleway / r_lanes_joined$group_length
