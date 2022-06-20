@@ -165,7 +165,7 @@ rg_new3 = rg_new2 %>%
 # create a new group to capture long continuous sections with the same name
 min_length_named_road = min_grouped_length
 rg_new4 = rg_new3 %>%
-  group_by(name, group, ig, name) %>%
+  group_by(ref, group2, ig, name) %>%
   mutate(long_named_section = case_when(
     sum(length) > min_length_named_road & name != "" ~ name,
     TRUE ~ "Other"
@@ -204,7 +204,7 @@ lg_new = do.call(rbind, long_list)
 
 # find group membership of top named roads
 r_lanes_grouped2 = lg_new %>%
-  group_by(name, group, ig, long_named_section, long_named_group) %>%
+  group_by(name, group2, ig, long_named_section, long_named_group, quietness) %>%
   summarise(
     name = case_when(
       length(table(name)) > 4 ~ "Unnamed road",
@@ -215,16 +215,38 @@ r_lanes_grouped2 = lg_new %>%
       TRUE ~ "Unnamed road"
     ),
     group_length = round(sum(length)),
-    mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE)),
-    mean_width = round(weighted.mean(width, length, na.rm = TRUE)),
-    majority_spare_lane = sum(length[spare_lane]) > sum(length[!spare_lane]),
-    speed_limit = names(which.max(table(maxspeed)))
+    mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE))
   ) %>%
   filter(mean_cycling_potential > min_grouped_cycling_potential | group_length > min_grouped_length) %>%
   ungroup() %>%
   mutate(group_id = 1:nrow(.))
+
 # mapview::mapview(r_lanes_grouped2, zcol = "mean_cycling_potential")
 # mapview::mapview(r_lanes_grouped2, zcol = "name")
+library(tmap)
+tm_shape(r_lanes_grouped2) + tm_lines("quietness")
+
+
+
+
+# Summary stats -----------------------------------------------------------
+
+weighted.mean(r_lanes_grouped2$quietness, w = r_lanes_grouped2$group_length)
+# [1] 53.79977
+
+
+weighted.mean(r_lanes_grouped2$mean_cycling_potential, w = r_lanes_grouped2$group_length)
+# [1] 39.82803
+
+r_lanes_grouped2 = r_lanes_grouped2 %>%
+  mutate(quiet = case_when(r_lanes_grouped2$quietness > 50 ~ "yes", TRUE ~ "no"),
+         high_cycling = case_when(r_lanes_grouped2$mean_cycling_potential > 40 ~ "yes", TRUE ~ "no"))
+
+
+
+
+
+
 
 # Generate lists of top segments ------------------------------------------------------------
 
