@@ -241,11 +241,6 @@ weighted.mean(r_lanes_grouped2$mean_cycling_potential, w = r_lanes_grouped2$grou
 prioritise = r_lanes_grouped2 %>%
   mutate(quiet = case_when(r_lanes_grouped2$quietness > 50 ~ "yes", TRUE ~ "no"),
          high_cycling = case_when(r_lanes_grouped2$mean_cycling_potential > 40 ~ "yes", TRUE ~ "no")
-         # , priority = case_when(
-         #   r_lanes_grouped2$quietness == "no" && r_lanes_grouped2$high_cycling == "yes" ~ 1,
-         #   r_lanes_grouped2$quietness == "yes" && r_lanes_grouped2$high_cycling == "yes" ~ 2,
-         #   r_lanes_grouped2$quietness == "yes" && r_lanes_grouped2$high_cycling == "no" ~ 3,
-         #   r_lanes_grouped2$quietness == "no" && r_lanes_grouped2$high_cycling == "no" ~ 4)
   )
 
 prioritise = prioritise %>%
@@ -257,7 +252,9 @@ prioritise = prioritise %>%
   )
 
 
-# tm_shape(prioritise) + tm_lines("quiet")
+pal = colorspace::sequential_hcl(n = 2, h = c(141, 6), c = c(70, NA, 86), l = c(73, 52), power = c(0.7, 1.9), rev = TRUE)
+tm_shape(prioritise) + tm_lines("quiet", palette = pal)
+tm_shape(prioritise) + tm_lines("high_cycling", palette = pal)
 
 high_quiet = prioritise %>%
   filter(quiet == "yes", high_cycling == "yes")
