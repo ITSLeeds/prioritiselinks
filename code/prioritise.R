@@ -242,27 +242,27 @@ tmap_mode("view")
 
 # Split up any segments longer than 2km -----------------------------------
 
-too_long = r_lanes_grouped2 %>%
-  filter(group_length > 2000)
-
-too_long2 = lg_new %>%
-  group_by(name, group2, ig, long_named_section, long_named_group, quietness) %>%
-  summarise(
-    name = case_when(
-      length(table(name)) > 4 ~ "Unnamed road",
-      names(table(name))[which.max(table(name))] != "" ~
-        names(table(name))[which.max(table(name))],
-      names(table(name))[which.max(table(name))] != "" ~
-        names(table(name))[which.max(table(name))],
-      TRUE ~ "Unnamed road"
-    ),
-    group_length = round(sum(length)),
-    mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE))
-  ) %>%
-  filter(mean_cycling_potential > min_grouped_cycling_potential | group_length > min_grouped_length) %>%
-  ungroup() %>%
-  mutate(group_id = 1:nrow(.)) %>%
-  filter(group_length > 2000)
+# too_long = r_lanes_grouped2 %>%
+#   filter(group_length > 2000)
+#
+# too_long2 = lg_new %>%
+#   group_by(name, group2, ig, long_named_section, long_named_group, quietness) %>%
+#   summarise(
+#     name = case_when(
+#       length(table(name)) > 4 ~ "Unnamed road",
+#       names(table(name))[which.max(table(name))] != "" ~
+#         names(table(name))[which.max(table(name))],
+#       names(table(name))[which.max(table(name))] != "" ~
+#         names(table(name))[which.max(table(name))],
+#       TRUE ~ "Unnamed road"
+#     ),
+#     group_length = round(sum(length)),
+#     mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE))
+#   ) %>%
+#   filter(mean_cycling_potential > min_grouped_cycling_potential | group_length > min_grouped_length) %>%
+#   ungroup() %>%
+#   mutate(group_id = 1:nrow(.)) %>%
+#   filter(group_length > 2000)
 
 # Summary stats -----------------------------------------------------------
 
@@ -351,63 +351,63 @@ summary(prioritise)
 
 
 
-cycleways = cycleways_en[region, ]
-cycleways = cycleways %>% select(surface, name, lit, osm_id)
-cycleway_buffer = stplanr::geo_buffer(cycleways, dist = pct_dist_within) %>% sf::st_union()
-
-r_lanes_grouped_in_cycleway = st_intersection(prioritise, cycleway_buffer) %>%
-  mutate(length_in_cycleway = round(as.numeric(st_length(.))))
-# mapview::mapview(r_lanes_grouped_in_cycleway["length_in_cycleway"]) +
-#   mapview::mapview(cycleways)
-r_lanes_grouped_in_cycleway = r_lanes_grouped_in_cycleway %>%
-  st_drop_geometry()
-
-minp_exclude = 0.8
-r_lanes_joined = left_join(prioritise, r_lanes_grouped_in_cycleway) %>%
-  mutate(km_cycled = round(mean_cycling_potential * group_length / 1000))
-r_lanes_joined$length_in_cycleway[is.na(r_lanes_joined$length_in_cycleway)] = 0
-r_lanes_joined$proportion_on_cycleway = r_lanes_joined$length_in_cycleway / r_lanes_joined$group_length
-summary(r_lanes_joined$proportion_on_cycleway) # all between 0 and 1
-# mapview::mapview(r_lanes_joined["proportion_on_cycleway"])
-
-# we need to add in all segments within the grey key roads, and usethe combined dataset to pick the top routes
-r_lanes_top = r_lanes_joined %>%
-  # filter(name != "Unnamed road" & name != "") %>%
-  filter(name != "Unnamed road") %>%
-  # filter(!str_detect(string = name, pattern = "^A[1-9]")) %>%
-  filter(group_length > min_grouped_length) %>%
-  filter(mean_cycling_potential > min_grouped_cycling_potential) %>%
-  filter(!grepl(pattern = regexclude, name, ignore.case = TRUE)) %>%
-  filter(proportion_on_cycleway < minp_exclude) %>%
-  mutate(
-    length_up_to_1km = if_else(group_length > 1000, true = 1000, false = group_length),
-    km_cycled_1km = length_up_to_1km * mean_cycling_potential,
-    srn = name %in% srn_names_df$roa_number
-  ) %>%
-  arrange(desc(mean_cycling_potential)) %>%
-  slice(1:n_top_roads)
-nrow(r_lanes_top)
-
-# classify roads to visualise
-labels = c("Top ranked new cycleways", "Spare lane(s)", "Estimated width > 10m")
-cycleways_name = "Existing cycleways"
-
-r_lanes_final = r_lanes_joined %>%
-  mutate(
-    Status = case_when(
-      group_id %in% r_lanes_top$group_id ~ labels[1],
-      majority_spare_lane ~ labels[2],
-      mean_width >= 10 ~ labels[3]
-    ),
-    `Estimated width` = case_when(
-      mean_width < 10 ~ "<10 m",
-      mean_width >= 10 & mean_width < 15 ~ "10-15 m",
-      mean_width >= 15 ~ ">15 m"
-    )
-  ) %>%
-  select(name, name, Status, mean_cycling_potential, spare_lane = majority_spare_lane, `Estimated width`, `length (m)` = group_length, group_id, speed_limit)
-r_lanes_final$Status = factor(r_lanes_final$Status, levels = c(labels[1], labels[2], labels[3]))
-
-table(r_lanes_final$name)
-table(r_lanes_final$Status)
-summary(factor(r_lanes_final$Status))
+# cycleways = cycleways_en[region, ]
+# cycleways = cycleways %>% select(surface, name, lit, osm_id)
+# cycleway_buffer = stplanr::geo_buffer(cycleways, dist = pct_dist_within) %>% sf::st_union()
+#
+# r_lanes_grouped_in_cycleway = st_intersection(prioritise, cycleway_buffer) %>%
+#   mutate(length_in_cycleway = round(as.numeric(st_length(.))))
+# # mapview::mapview(r_lanes_grouped_in_cycleway["length_in_cycleway"]) +
+# #   mapview::mapview(cycleways)
+# r_lanes_grouped_in_cycleway = r_lanes_grouped_in_cycleway %>%
+#   st_drop_geometry()
+#
+# minp_exclude = 0.8
+# r_lanes_joined = left_join(prioritise, r_lanes_grouped_in_cycleway) %>%
+#   mutate(km_cycled = round(mean_cycling_potential * group_length / 1000))
+# r_lanes_joined$length_in_cycleway[is.na(r_lanes_joined$length_in_cycleway)] = 0
+# r_lanes_joined$proportion_on_cycleway = r_lanes_joined$length_in_cycleway / r_lanes_joined$group_length
+# summary(r_lanes_joined$proportion_on_cycleway) # all between 0 and 1
+# # mapview::mapview(r_lanes_joined["proportion_on_cycleway"])
+#
+# # we need to add in all segments within the grey key roads, and usethe combined dataset to pick the top routes
+# r_lanes_top = r_lanes_joined %>%
+#   # filter(name != "Unnamed road" & name != "") %>%
+#   filter(name != "Unnamed road") %>%
+#   # filter(!str_detect(string = name, pattern = "^A[1-9]")) %>%
+#   filter(group_length > min_grouped_length) %>%
+#   filter(mean_cycling_potential > min_grouped_cycling_potential) %>%
+#   filter(!grepl(pattern = regexclude, name, ignore.case = TRUE)) %>%
+#   filter(proportion_on_cycleway < minp_exclude) %>%
+#   mutate(
+#     length_up_to_1km = if_else(group_length > 1000, true = 1000, false = group_length),
+#     km_cycled_1km = length_up_to_1km * mean_cycling_potential,
+#     srn = name %in% srn_names_df$roa_number
+#   ) %>%
+#   arrange(desc(mean_cycling_potential)) %>%
+#   slice(1:n_top_roads)
+# nrow(r_lanes_top)
+#
+# # classify roads to visualise
+# labels = c("Top ranked new cycleways", "Spare lane(s)", "Estimated width > 10m")
+# cycleways_name = "Existing cycleways"
+#
+# r_lanes_final = r_lanes_joined %>%
+#   mutate(
+#     Status = case_when(
+#       group_id %in% r_lanes_top$group_id ~ labels[1],
+#       majority_spare_lane ~ labels[2],
+#       mean_width >= 10 ~ labels[3]
+#     ),
+#     `Estimated width` = case_when(
+#       mean_width < 10 ~ "<10 m",
+#       mean_width >= 10 & mean_width < 15 ~ "10-15 m",
+#       mean_width >= 15 ~ ">15 m"
+#     )
+#   ) %>%
+#   select(name, name, Status, mean_cycling_potential, spare_lane = majority_spare_lane, `Estimated width`, `length (m)` = group_length, group_id, speed_limit)
+# r_lanes_final$Status = factor(r_lanes_final$Status, levels = c(labels[1], labels[2], labels[3]))
+#
+# table(r_lanes_final$name)
+# table(r_lanes_final$Status)
+# summary(factor(r_lanes_final$Status))
