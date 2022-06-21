@@ -206,6 +206,9 @@ long_list = lapply(lgs, FUN = function(i) {
 
 lg_new = do.call(rbind, long_list)
 
+lg_new = lg_new %>%
+  mutate(rowid = row_number())
+
 # other_roads = rg_new4[rg_new4$long_named_section == "Other", ]
 # other_roads$long_named_group = NA
 # rejoined = rbind(lg_new, other_roads)
@@ -237,6 +240,29 @@ tmap_mode("view")
 
 
 
+# Split up any segments longer than 2km -----------------------------------
+
+too_long = r_lanes_grouped2 %>%
+  filter(group_length > 2000)
+
+too_long2 = lg_new %>%
+  group_by(name, group2, ig, long_named_section, long_named_group, quietness) %>%
+  summarise(
+    name = case_when(
+      length(table(name)) > 4 ~ "Unnamed road",
+      names(table(name))[which.max(table(name))] != "" ~
+        names(table(name))[which.max(table(name))],
+      names(table(name))[which.max(table(name))] != "" ~
+        names(table(name))[which.max(table(name))],
+      TRUE ~ "Unnamed road"
+    ),
+    group_length = round(sum(length)),
+    mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE))
+  ) %>%
+  filter(mean_cycling_potential > min_grouped_cycling_potential | group_length > min_grouped_length) %>%
+  ungroup() %>%
+  mutate(group_id = 1:nrow(.)) %>%
+  filter(group_length > 2000)
 
 # Summary stats -----------------------------------------------------------
 
