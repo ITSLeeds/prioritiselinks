@@ -137,16 +137,21 @@ rg_list = lapply(gs, FUN = function(i) {
 rg_new = do.call(rbind, rg_list)
 # mapview::mapview(rg_new)
 
-# Only keep groups of sufficient cycling potential
+# Only keep groups of sufficient cycling potential or length
 rg_new2 = rg_new %>%
   group_by(ig, group2, name) %>%
   mutate(
-    mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE))
+    mean_cycling_potential = round(weighted.mean(cyclists, length, na.rm = TRUE)),
+    length_name = round(sum(length))
   ) %>%
   # filter(mean_cycling_potential >= min_grouped_cycling_potential) %>%
+  filter(mean_cycling_potential >= min_grouped_cycling_potential | length_name > 100) %>%
   ungroup()
 # mapview::mapview(rg_new2, zcol = "mean_cycling_potential")
 
+
+
+# probably not needed
 rg_buff = geo_buffer(shp = rg_new2, dist = buff_dist_large)
 touching_list = st_intersects(rg_buff)
 g = igraph::graph.adjlist(touching_list)
@@ -161,6 +166,9 @@ rg_new3 = rg_new2 %>%
   filter(last_length >= min_grouped_length) %>%
   ungroup()
 
+
+
+
 # mapview::mapview(rg_new3, zcol = "lastgroup")
 # create a new group to capture long continuous sections with the same name
 min_length_named_road = min_grouped_length
@@ -173,7 +181,7 @@ rg_new4 = rg_new3 %>%
   ) %>%
   ungroup()
 # mapview::mapview(rg_new4, zcol = "long_named_section")
-table(rg_new4$long_named_section)
+# table(rg_new4$long_named_section)
 # new approach
 
 # Split into sections by road name, and split these into contiguous sections using buff_dist_large (100m).
