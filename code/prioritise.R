@@ -224,7 +224,8 @@ r_lanes_grouped2 = lg_new %>%
 # mapview::mapview(r_lanes_grouped2, zcol = "mean_cycling_potential")
 # mapview::mapview(r_lanes_grouped2, zcol = "name")
 library(tmap)
-tm_shape(r_lanes_grouped2) + tm_lines("quietness")
+tmap_mode("view")
+# tm_shape(r_lanes_grouped2) + tm_lines("quietness")
 
 
 
@@ -244,10 +245,10 @@ prioritise = r_lanes_grouped2 %>%
   )
 
 prioritise = prioritise %>%
-  mutate(priority = case_when(prioritise$quiet == "no" & prioritise$high_cycling == "yes" ~ 1,
-                              prioritise$quiet == "yes" & prioritise$high_cycling == "yes" ~ 2,
-                              prioritise$quiet == "yes" & prioritise$high_cycling == "no" ~ 3,
-                              prioritise$quiet == "no" & prioritise$high_cycling == "no" ~ 4
+  mutate(priority = case_when(prioritise$quiet == "no" & prioritise$high_cycling == "yes" ~ "1st",
+                              prioritise$quiet == "yes" & prioritise$high_cycling == "yes" ~ "2nd",
+                              prioritise$quiet == "yes" & prioritise$high_cycling == "no" ~ "3rd",
+                              prioritise$quiet == "no" & prioritise$high_cycling == "no" ~ "4th"
   )
   )
 
@@ -284,15 +285,37 @@ sum(low_busy$group_length)
 dim(low_busy)[1]
 # [1] 272
 
+prioritise = prioritise %>%
+  mutate(ordered = sqrt(mean_cycling_potential) / sqrt(quietness))
+
 g1 = prioritise %>%
   ggplot(aes(mean_cycling_potential, quietness)) +
-  geom_point(alpha = 0.3, colour = prioritise$priority) +
+  geom_point(aes(colour = priority, size = group_length), alpha = 0.3) +
+  scale_color_manual(values = c("red", "yellow", "pink", "blue")) +
+  scale_size(range = c(1, 9)) +
   geom_hline(yintercept = 50) +
   geom_vline(xintercept = 40) +
-  labs(x = "Mean cycling potential", y = "Quietness")
-# g1 + scale_x_continuous(trans = "log10")
+  labs(x = "Mean cycling potential", y = "Quietness", colour = "Priority", size = "Length (m)") +
+  guides(colour = guide_legend(order = 1), size = guide_legend(order = 2))
+# g1
+g1 + scale_x_continuous(trans = "log10")
 
 # Generate lists of top segments ------------------------------------------------------------
+
+
+
+summary(prioritise)
+
+
+
+
+
+
+
+
+
+
+
 
 cycleways = cycleways_en[region, ]
 cycleways = cycleways %>% select(surface, name, lit, osm_id)
